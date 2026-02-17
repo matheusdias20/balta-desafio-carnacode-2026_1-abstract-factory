@@ -1,83 +1,41 @@
-// DESAFIO: Sistema de Pagamentos Multi-Gateway
-// PROBLEMA: Uma plataforma de e-commerce precisa integrar com múltiplos gateways de pagamento
-// (PagSeguro, MercadoPago, Stripe) e cada gateway tem componentes específicos (Processador, Validador, Logger)
-// O código atual está muito acoplado e dificulta a adição de novos gateways
-
 using System;
 
 namespace DesignPatternChallenge
 {
-    // Contexto: Sistema de pagamentos que precisa trabalhar com diferentes gateways
-    // Cada gateway tem sua própria forma de processar, validar e logar transações
-    
-    public class PaymentService
+    // ============================
+    // 1. Interfaces for Products
+    // ============================
+    public interface IPaymentValidator
     {
-        private readonly string _gateway;
-
-        public PaymentService(string gateway)
-        {
-            _gateway = gateway;
-        }
-
-        public void ProcessPayment(decimal amount, string cardNumber)
-        {
-            // Problema: Switch case gigante para cada gateway
-            // Quando adicionar novo gateway, precisa modificar este método
-            switch (_gateway.ToLower())
-            {
-                case "pagseguro":
-                    var pagSeguroValidator = new PagSeguroValidator();
-                    if (!pagSeguroValidator.ValidateCard(cardNumber))
-                    {
-                        Console.WriteLine("PagSeguro: Cartão inválido");
-                        return;
-                    }
-                    
-                    var pagSeguroProcessor = new PagSeguroProcessor();
-                    var pagSeguroResult = pagSeguroProcessor.ProcessTransaction(amount, cardNumber);
-                    
-                    var pagSeguroLogger = new PagSeguroLogger();
-                    pagSeguroLogger.Log($"Transação processada: {pagSeguroResult}");
-                    break;
-
-                case "mercadopago":
-                    var mercadoPagoValidator = new MercadoPagoValidator();
-                    if (!mercadoPagoValidator.ValidateCard(cardNumber))
-                    {
-                        Console.WriteLine("MercadoPago: Cartão inválido");
-                        return;
-                    }
-                    
-                    var mercadoPagoProcessor = new MercadoPagoProcessor();
-                    var mercadoPagoResult = mercadoPagoProcessor.ProcessTransaction(amount, cardNumber);
-                    
-                    var mercadoPagoLogger = new MercadoPagoLogger();
-                    mercadoPagoLogger.Log($"Transação processada: {mercadoPagoResult}");
-                    break;
-
-                case "stripe":
-                    var stripeValidator = new StripeValidator();
-                    if (!stripeValidator.ValidateCard(cardNumber))
-                    {
-                        Console.WriteLine("Stripe: Cartão inválido");
-                        return;
-                    }
-                    
-                    var stripeProcessor = new StripeProcessor();
-                    var stripeResult = stripeProcessor.ProcessTransaction(amount, cardNumber);
-                    
-                    var stripeLogger = new StripeLogger();
-                    stripeLogger.Log($"Transação processada: {stripeResult}");
-                    break;
-
-                default:
-                    throw new ArgumentException("Gateway não suportado");
-            }
-        }
+        bool ValidateCard(string cardNumber);
     }
 
-    // Componentes do PagSeguro
-    public class PagSeguroValidator
+    public interface IPaymentProcessor
+    {
+        string ProcessTransaction(decimal amount, string cardNumber);
+    }
+
+    public interface IPaymentLogger
+    {
+        void Log(string message);
+    }
+
+    // ============================
+    // 2. Abstract Factory
+    // ============================
+    public interface IPaymentFactory
+    {
+        IPaymentValidator CreateValidator();
+        IPaymentProcessor CreateProcessor();
+        IPaymentLogger CreateLogger();
+    }
+
+    // ============================
+    // 3. Concrete Products
+    // ============================
+
+    // --- PagSeguro ---
+    public class PagSeguroValidator : IPaymentValidator
     {
         public bool ValidateCard(string cardNumber) 
         {
@@ -86,7 +44,7 @@ namespace DesignPatternChallenge
         }
     }
 
-    public class PagSeguroProcessor
+    public class PagSeguroProcessor : IPaymentProcessor
     {
         public string ProcessTransaction(decimal amount, string cardNumber)
         {
@@ -95,7 +53,7 @@ namespace DesignPatternChallenge
         }
     }
 
-    public class PagSeguroLogger
+    public class PagSeguroLogger : IPaymentLogger
     {
         public void Log(string message)
         {
@@ -103,8 +61,8 @@ namespace DesignPatternChallenge
         }
     }
 
-    // Componentes do MercadoPago
-    public class MercadoPagoValidator
+    // --- MercadoPago ---
+    public class MercadoPagoValidator : IPaymentValidator
     {
         public bool ValidateCard(string cardNumber)
         {
@@ -113,7 +71,7 @@ namespace DesignPatternChallenge
         }
     }
 
-    public class MercadoPagoProcessor
+    public class MercadoPagoProcessor : IPaymentProcessor
     {
         public string ProcessTransaction(decimal amount, string cardNumber)
         {
@@ -122,7 +80,7 @@ namespace DesignPatternChallenge
         }
     }
 
-    public class MercadoPagoLogger
+    public class MercadoPagoLogger : IPaymentLogger
     {
         public void Log(string message)
         {
@@ -130,8 +88,8 @@ namespace DesignPatternChallenge
         }
     }
 
-    // Componentes do Stripe
-    public class StripeValidator
+    // --- Stripe ---
+    public class StripeValidator : IPaymentValidator
     {
         public bool ValidateCard(string cardNumber)
         {
@@ -140,7 +98,7 @@ namespace DesignPatternChallenge
         }
     }
 
-    public class StripeProcessor
+    public class StripeProcessor : IPaymentProcessor
     {
         public string ProcessTransaction(decimal amount, string cardNumber)
         {
@@ -149,11 +107,71 @@ namespace DesignPatternChallenge
         }
     }
 
-    public class StripeLogger
+    public class StripeLogger : IPaymentLogger
     {
         public void Log(string message)
         {
             Console.WriteLine($"[Stripe Log] {DateTime.Now}: {message}");
+        }
+    }
+
+    // ============================
+    // 4. Concrete Factories
+    // ============================
+    public class PagSeguroFactory : IPaymentFactory
+    {
+        public IPaymentValidator CreateValidator() => new PagSeguroValidator();
+        public IPaymentProcessor CreateProcessor() => new PagSeguroProcessor();
+        public IPaymentLogger CreateLogger() => new PagSeguroLogger();
+    }
+
+    public class MercadoPagoFactory : IPaymentFactory
+    {
+        public IPaymentValidator CreateValidator() => new MercadoPagoValidator();
+        public IPaymentProcessor CreateProcessor() => new MercadoPagoProcessor();
+        public IPaymentLogger CreateLogger() => new MercadoPagoLogger();
+    }
+
+    public class StripeFactory : IPaymentFactory
+    {
+        public IPaymentValidator CreateValidator() => new StripeValidator();
+        public IPaymentProcessor CreateProcessor() => new StripeProcessor();
+        public IPaymentLogger CreateLogger() => new StripeLogger();
+    }
+
+    // ============================
+    // 5. Client (PaymentService)
+    // ============================
+    public class PaymentService
+    {
+        private readonly IPaymentValidator _validator;
+        private readonly IPaymentProcessor _processor;
+        private readonly IPaymentLogger _logger;
+        private readonly string _gatewayName;
+
+        public PaymentService(IPaymentFactory factory)
+        {
+            _validator = factory.CreateValidator();
+            _processor = factory.CreateProcessor();
+            _logger = factory.CreateLogger();
+            
+            // Just for output matching the original code style
+            if (factory is PagSeguroFactory) _gatewayName = "PagSeguro";
+            else if (factory is MercadoPagoFactory) _gatewayName = "MercadoPago";
+            else if (factory is StripeFactory) _gatewayName = "Stripe";
+            else _gatewayName = "Gateway";
+        }
+
+        public void ProcessPayment(decimal amount, string cardNumber)
+        {
+            if (!_validator.ValidateCard(cardNumber))
+            {
+                Console.WriteLine($"{_gatewayName}: Cartão inválido");
+                return;
+            }
+
+            var result = _processor.ProcessTransaction(amount, cardNumber);
+            _logger.Log($"Transação processada: {result}");
         }
     }
 
@@ -163,22 +181,19 @@ namespace DesignPatternChallenge
         {
             Console.WriteLine("=== Sistema de Pagamentos ===\n");
 
-            // Problema: Cliente precisa saber qual gateway está usando
-            // e o código de processamento está todo acoplado
-            var pagSeguroService = new PaymentService("pagseguro");
+            // PagSeguro
+            var pagSeguroFactory = new PagSeguroFactory();
+            var pagSeguroService = new PaymentService(pagSeguroFactory);
             pagSeguroService.ProcessPayment(150.00m, "1234567890123456");
 
             Console.WriteLine();
 
-            var mercadoPagoService = new PaymentService("mercadopago");
+            // MercadoPago
+            var mercadoPagoFactory = new MercadoPagoFactory();
+            var mercadoPagoService = new PaymentService(mercadoPagoFactory);
             mercadoPagoService.ProcessPayment(200.00m, "5234567890123456");
 
             Console.WriteLine();
-
-            // Pergunta para reflexão:
-            // - Como adicionar um novo gateway sem modificar PaymentService?
-            // - Como garantir que todos os componentes de um gateway sejam compatíveis entre si?
-            // - Como evitar criar componentes de gateways diferentes acidentalmente?
         }
     }
 }
